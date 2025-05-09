@@ -1,0 +1,18 @@
+"Phrases"
+{
+    "TAG"
+    {
+        "en"            "<{green}Team Switch{default}> "
+    }
+
+    "TEAM_SWITCH_DELAY"
+    {
+        "#format"       "{1:d}"
+        "en"            "Team switch too fast. Wait {1} second"
+    }
+
+    "TEAM_SWITCH_WITH_VICTIM_BLOCKED"
+    {
+       "en"            "You can't switch teams with a victim"
+    }
+}
