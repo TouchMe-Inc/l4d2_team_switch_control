@@ -15,4 +15,9 @@
     {
        "en"            "You can't switch teams with a victim"
     }
+
+    "TEAM_SWITCH_FOR_TANK_BLOCKED"
+    {
+       "en"            "You can't switch teams when you are a Tank"
+    }
 }

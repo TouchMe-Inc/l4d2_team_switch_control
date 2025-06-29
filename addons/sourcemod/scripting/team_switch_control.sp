@@ -13,7 +13,7 @@ public Plugin myinfo = {
     name        = "TeamSwitchControl",
     author      = "TouchMe",
     description = "A plugin to manage team switching",
-    version     = "build_0001",
+    version     = "build_0002",
     url         = "https://github.com/TouchMe-Inc/l4d2_team_switch_control"
 };
 
@@ -24,6 +24,11 @@ public Plugin myinfo = {
  * Libs.
  */
 #define LIB_DHOOK               "left4dhooks"
+
+/*
+ * Infected class.
+ */
+#define CLASS_TANK              8
 
 /**
  * Teams.
@@ -104,9 +109,6 @@ public void OnPluginStart()
 {
     LoadTranslations(TRANSLATIONS);
 
-    // g_cvSurvivorLimit = FindConVar("survivor_limit");
-    // g_cvMaxPlayerZombues = FindConVar("z_max_player_zombies");
-
     RegConsoleCmd("sm_spectate", Cmd_Spectate, "Moves you to the spectator team");
     RegConsoleCmd("sm_spec", Cmd_Spectate, "Moves you to the spectator team");
     RegConsoleCmd("sm_s", Cmd_Spectate, "Moves you to the spectator team");
@@ -125,7 +127,7 @@ Action Cmd_Spectate(int iClient, int iArgs)
 
     if (iDelay > 0)
     {
-        CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_DELAY", iClient, iDelay); // You cannot switch teams so frequently. Please wait %d seconds
+        CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_DELAY", iClient, iDelay);
         return Plugin_Handled;
     }
 
@@ -135,10 +137,20 @@ Action Cmd_Spectate(int iClient, int iArgs)
         
         case TEAM_INFECTED:
         {
+            if (IsInfectedTank(iClient))
+            {
+                CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_FOR_TANK_BLOCKED", iClient);
+                return Plugin_Handled;
+            }
+
             if (IsInfectedWithVictim(iClient))
             {
                 CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_WITH_VICTIM_BLOCKED", iClient);
                 return Plugin_Handled;
+            }
+
+            else if (!IsInfectedGhost(iClient)) {
+                ForcePlayerSuicide(iClient);
             }
 
             SetupClientTeam(iClient, TEAM_SPECTATOR);
@@ -167,10 +179,19 @@ Action Listener_JoinTeam(int iClient, const char[] command, int iArgs)
         return Plugin_Handled;
     }
 
-    if (IsClientInfected(iClient) && IsInfectedWithVictim(iClient))
+    if (IsClientInfected(iClient))
     {
-        CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_WITH_VICTIM_BLOCKED", iClient);
-        return Plugin_Handled;
+        if (IsInfectedTank(iClient))
+        {
+            CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_FOR_TANK_BLOCKED", iClient);
+            return Plugin_Handled;
+        }
+
+        if (IsInfectedWithVictim(iClient))
+        {
+            CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_WITH_VICTIM_BLOCKED", iClient);
+            return Plugin_Handled;
+        }
     }
 
     g_iLastClientCommandTime[iClient] = iCurrentTime + g_iSwitchTeamCooldown;
@@ -293,6 +314,24 @@ bool IsClientInfected(int iClient) {
 }
 
 /**
+ * Get the zombie player class.
+ */
+int GetInfectedClass(int iClient) { 
+    return GetEntProp(iClient, Prop_Send, "m_zombieClass"); 
+}
+
+bool IsInfectedTank(int iClient) { 
+    return GetInfectedClass(iClient) == CLASS_TANK; 
+}
+
+/**
+ * Returns whether the player is a ghost.
+ */
+bool IsInfectedGhost(int iClient) {
+	return view_as<bool>(GetEntProp(iClient, Prop_Send, "m_isGhost"));
+}
+
+/**
  * Checks if the Infected client has a victim.
  *
  * @param iClient           The client identifier.
@@ -303,5 +342,6 @@ bool IsInfectedWithVictim(int iClient) {
     return GetEntProp(iClient, Prop_Send, "m_tongueVictim") > 0
     || GetEntProp(iClient, Prop_Send, "m_pounceVictim") > 0
     || GetEntProp(iClient, Prop_Send, "m_pummelVictim") > 0
-    || GetEntProp(iClient, Prop_Send, "m_jockeyVictim") > 0;
+    || GetEntProp(iClient, Prop_Send, "m_jockeyVictim") > 0
+    || GetEntPropEnt(iClient, Prop_Send, "m_carryVictim") > 0;
 }
