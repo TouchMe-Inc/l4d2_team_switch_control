@@ -1,0 +1,18 @@
+"Phrases"
+{
+    "TAG"
+    {
+        "ru"            "<{green}Team Switch{default}> "
+    }
+
+    "TEAM_SWITCH_DELAY"
+    {
+        "#format"       "{1:d}"
+        "ru"            "Смена команды слишком быстрая. Подождите {1} секунд"
+    }
+
+    "TEAM_SWITCH_WITH_VICTIM_BLOCKED"
+    {
+       "ru"            "Вы не можете сменить команду с жертвой"
+    }
+}
