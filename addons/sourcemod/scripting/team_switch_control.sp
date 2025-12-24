@@ -13,7 +13,7 @@ public Plugin myinfo = {
     name        = "TeamSwitchControl",
     author      = "TouchMe",
     description = "A plugin to manage team switching",
-    version     = "build_0002",
+    version     = "build_0003",
     url         = "https://github.com/TouchMe-Inc/l4d2_team_switch_control"
 };
 
@@ -46,9 +46,6 @@ public Plugin myinfo = {
 
 
 bool g_bDHookAvailable = false;
-
-// ConVar g_cvSurvivorLimit = null;
-// ConVar g_cvMaxPlayerZombues = null;
 
 ConVar g_cvSwitchTeamCooldown = null;
 int g_iSwitchTeamCooldown = 0;
@@ -170,6 +167,26 @@ Action Listener_JoinTeam(int iClient, const char[] command, int iArgs)
         return Plugin_Handled;
     }
 
+    int iClientTeam = GetClientTeam(iClient);
+
+    char szTeam[16];
+    GetCmdArg(1, szTeam, sizeof szTeam);
+
+    switch (iClientTeam)
+    {
+        case TEAM_INFECTED: {
+            if (StrEqual(szTeam, "Infected", false)) {
+                return Plugin_Handled;
+            }
+        }
+
+        case TEAM_SURVIVOR: {
+            if (StrEqual(szTeam, "Survivor", false)) {
+                return Plugin_Handled;
+            }
+        }
+    }
+
     int iCurrentTime = GetTime();
     int iDelay = g_iLastClientCommandTime[iClient] - iCurrentTime;
 
@@ -179,34 +196,18 @@ Action Listener_JoinTeam(int iClient, const char[] command, int iArgs)
         return Plugin_Handled;
     }
 
-    char szTeam[16];
-    GetCmdArg(1, szTeam, sizeof szTeam);
-
-    switch (GetClientTeam(iClient))
+    if (iClientTeam == TEAM_INFECTED)
     {
-        case TEAM_INFECTED:
+        if (IsInfectedTank(iClient))
         {
-            if (StrEqual(szTeam, "Infected", false)) {
-                return Plugin_Handled;
-            }
-
-            if (IsInfectedTank(iClient))
-            {
-                CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_FOR_TANK_BLOCKED", iClient);
-                return Plugin_Handled;
-            }
-
-            if (IsInfectedWithVictim(iClient))
-            {
-                CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_WITH_VICTIM_BLOCKED", iClient);
-                return Plugin_Handled;
-            }
+            CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_FOR_TANK_BLOCKED", iClient);
+            return Plugin_Handled;
         }
 
-        case TEAM_SURVIVOR : {
-            if (StrEqual(szTeam, "Survivor", false)) {
-                return Plugin_Handled;
-            }
+        if (IsInfectedWithVictim(iClient))
+        {
+            CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_WITH_VICTIM_BLOCKED", iClient);
+            return Plugin_Handled;
         }
     }
 
@@ -278,12 +279,12 @@ bool SetupClientTeam(int iClient, int iTeam)
 /**
  * Hack to execute cheat commands.
  */
-void ExecuteCheatCommand(int iClient, const char[] sCmd, const char[] sArgs = "")
+void ExecuteCheatCommand(int iClient, const char[] szCmd, const char[] sArgs = "")
 {
-    int iFlags = GetCommandFlags(sCmd);
-    SetCommandFlags(sCmd, iFlags & ~FCVAR_CHEAT);
-    FakeClientCommand(iClient, "%s %s", sCmd, sArgs);
-    SetCommandFlags(sCmd, iFlags);
+    int iFlags = GetCommandFlags(szCmd);
+    SetCommandFlags(szCmd, iFlags & ~FCVAR_CHEAT);
+    FakeClientCommand(iClient, "%s %s", szCmd, sArgs);
+    SetCommandFlags(szCmd, iFlags);
 }
 
 /**
