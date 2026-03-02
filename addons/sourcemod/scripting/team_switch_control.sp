@@ -13,7 +13,7 @@ public Plugin myinfo = {
     name        = "TeamSwitchControl",
     author      = "TouchMe",
     description = "A plugin to manage team switching",
-    version     = "build_0003",
+    version     = "build_0004",
     url         = "https://github.com/TouchMe-Inc/l4d2_team_switch_control"
 };
 
@@ -46,6 +46,8 @@ public Plugin myinfo = {
 
 
 bool g_bDHookAvailable = false;
+
+ConVar g_cvMaxPlayerZombies = null;
 
 ConVar g_cvSwitchTeamCooldown = null;
 int g_iSwitchTeamCooldown = 0;
@@ -110,11 +112,18 @@ public void OnPluginStart()
     RegConsoleCmd("sm_spec", Cmd_Spectate, "Moves you to the spectator team");
     RegConsoleCmd("sm_s", Cmd_Spectate, "Moves you to the spectator team");
 
+    g_cvMaxPlayerZombies = FindConVar("z_max_player_zombies");
     g_cvSwitchTeamCooldown = CreateConVar("sm_tsc_cooldown", "3.0");
+
+    HookConVarChange(g_cvSwitchTeamCooldown, OnCvChange_SwitchTeamCooldown);
 
     g_iSwitchTeamCooldown = GetConVarInt(g_cvSwitchTeamCooldown);
 
     AddCommandListener(Listener_JoinTeam, "jointeam");
+}
+
+void OnCvChange_SwitchTeamCooldown(ConVar cv, const char[] oldValue, const char[] newValue) {
+    g_iSwitchTeamCooldown = GetConVarInt(cv);
 }
 
 Action Cmd_Spectate(int iClient, int iArgs)
@@ -131,7 +140,7 @@ Action Cmd_Spectate(int iClient, int iArgs)
     switch (GetClientTeam(iClient))
     {
         case TEAM_SURVIVOR: SetupClientTeam(iClient, TEAM_SPECTATOR);
-        
+
         case TEAM_INFECTED:
         {
             if (IsInfectedTank(iClient))
@@ -157,7 +166,7 @@ Action Cmd_Spectate(int iClient, int iArgs)
     }
 
     g_iLastClientCommandTime[iClient] = iCurrentTime + g_iSwitchTeamCooldown;
-    
+
     return Plugin_Handled;
 }
 
@@ -172,19 +181,16 @@ Action Listener_JoinTeam(int iClient, const char[] command, int iArgs)
     char szTeam[16];
     GetCmdArg(1, szTeam, sizeof szTeam);
 
-    switch (iClientTeam)
-    {
-        case TEAM_INFECTED: {
-            if (StrEqual(szTeam, "Infected", false)) {
-                return Plugin_Handled;
-            }
-        }
+    int iNewTeam = StringToInt(szTeam);
 
-        case TEAM_SURVIVOR: {
-            if (StrEqual(szTeam, "Survivor", false)) {
-                return Plugin_Handled;
-            }
-        }
+    if (iNewTeam == 0)
+    {
+        if (StrEqual(szTeam, "Infected", false)) iNewTeam = TEAM_INFECTED;
+        if (StrEqual(szTeam, "Survivor", false)) iNewTeam = TEAM_SURVIVOR;
+    }
+
+    if (iNewTeam == iClientTeam) {
+        return Plugin_Handled;
     }
 
     int iCurrentTime = GetTime();
@@ -193,6 +199,10 @@ Action Listener_JoinTeam(int iClient, const char[] command, int iArgs)
     if (iDelay > 0)
     {
         CPrintToChat(iClient, "%T%T", "TAG", iClient, "TEAM_SWITCH_DELAY", iClient, iDelay);
+        return Plugin_Handled;
+    }
+
+    if (iNewTeam == TEAM_INFECTED && GetTeamPlayerCount(TEAM_INFECTED) >= GetConVarInt(g_cvMaxPlayerZombies)) {
         return Plugin_Handled;
     }
 
@@ -322,19 +332,35 @@ bool IsClientSurvivor(int iClient) {
 /**
  * Get the zombie player class.
  */
-int GetInfectedClass(int iClient) { 
-    return GetEntProp(iClient, Prop_Send, "m_zombieClass"); 
+int GetInfectedClass(int iClient) {
+    return GetEntProp(iClient, Prop_Send, "m_zombieClass");
 }
 
-bool IsInfectedTank(int iClient) { 
-    return GetInfectedClass(iClient) == CLASS_TANK; 
+bool IsInfectedTank(int iClient) {
+    return GetInfectedClass(iClient) == CLASS_TANK;
+}
+
+int GetTeamPlayerCount(int iTeam)
+{
+    int iPlayers = 0;
+
+    for (int iClient = 1; iClient <= MaxClients; iClient++)
+    {
+        if (!IsClientInGame(iClient) || IsFakeClient(iClient) || GetClientTeam(iClient) != iTeam) {
+            continue;
+        }
+
+        iPlayers ++;
+    }
+
+    return iPlayers;
 }
 
 /**
  * Returns whether the player is a ghost.
  */
 bool IsInfectedGhost(int iClient) {
-	return view_as<bool>(GetEntProp(iClient, Prop_Send, "m_isGhost"));
+    return view_as<bool>(GetEntProp(iClient, Prop_Send, "m_isGhost"));
 }
 
 /**
@@ -344,7 +370,8 @@ bool IsInfectedGhost(int iClient) {
  *
  * @return                  true if the client has a victim, otherwise false.
  */
-bool IsInfectedWithVictim(int iClient) {
+bool IsInfectedWithVictim(int iClient)
+{
     return GetEntProp(iClient, Prop_Send, "m_tongueVictim") > 0
     || GetEntProp(iClient, Prop_Send, "m_pounceVictim") > 0
     || GetEntProp(iClient, Prop_Send, "m_pummelVictim") > 0
